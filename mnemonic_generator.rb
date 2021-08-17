@@ -1,3 +1,5 @@
+require 'set'
+
 number = ARGV.first.to_i
 simple_mode = !!ARGV[1]
 
@@ -18,26 +20,64 @@ LETTER_TO_DIGIT = DIGIT_TO_LETTER.flat_map do |digit, letters|
   letters.map { |letter| [letter, digit] }
 end.to_h
 
-def find_mnemonic(footprint_to_words, digits, mnemonic = [], length = digits.size)
-  return mnemonic if digits.empty?
-  raise "Fail #{mnemonic} > #{digits}" if length.zero?
+def bfs(graph, from, to)
+  queue = [from]
+  visited = [from].to_set
+  spanning_tree = {}
 
-  footprint = digits.take(length).join
-  words = footprint_to_words[footprint]
-  if words
-    find_mnemonic(
-      footprint_to_words,
-      digits.drop(length),
-      mnemonic + [{footprint => words}],
-      digits.size - length
-    )
-  else
-    find_mnemonic(footprint_to_words, digits, mnemonic, length.pred)
+  until queue.empty? || visited.include?(to)
+    current_node = queue.shift
+    (graph[current_node] || []).each do |adjacent_node|
+      next if visited.include? adjacent_node
+
+      queue.push adjacent_node
+      visited.add adjacent_node
+      spanning_tree[adjacent_node] = current_node
+    end
+  end
+
+  return unless visited.include? to
+
+  path = []
+  node = to
+
+  until from == node do
+    path.unshift node
+    node = spanning_tree[node]
+  end
+
+  path.unshift(node)
+
+  path
+end
+
+def sentence_breakdown(dictionary, sentence)
+  return [dictionary[sentence]] if dictionary[sentence]
+
+  graph = {}
+  0.upto(sentence.size.pred).each do |start_index|
+    1.upto(sentence.size).each do |end_index|
+      word = sentence[start_index...end_index]
+
+      if dictionary[word]
+        graph[start_index] ||= []
+        graph[start_index].push end_index
+      end
+    end
+  end
+
+  path = bfs graph, 0, sentence.size
+
+  return unless path
+
+  path.each_cons(2).map do |start_index, end_index|
+    word = sentence[start_index...end_index]
+    [word, dictionary[word]]
   end
 end
 
 def footprint_to_words(words)
-  footprint_word_pairs = words.reject { |word| word.size < 3 }.map do |word|
+  footprint_word_pairs = words.map do |word|
     [word.chars.map { |letter| LETTER_TO_DIGIT[letter] }.compact.join, word]
   end
 
@@ -48,10 +88,11 @@ end
 
 words = File.read('./books/dict/words.list').split("\n")
 
-mnemonic = find_mnemonic(footprint_to_words(words), number.to_s.chars)
+mnemonic = sentence_breakdown footprint_to_words(words), number.to_s
+raise 'Failed for find mnemonic!' unless mnemonic
 
 if simple_mode
-  pp (mnemonic.map { |mn| mn.transform_values(&:first) })
+  pp (mnemonic.map { |footprint, words| [footprint, words.first] })
 else
   pp mnemonic
 end

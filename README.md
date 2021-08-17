@@ -8,7 +8,5 @@ Work in progress. Move along! Nothing to see here!
 - [ ] Remove proper names
 - [ ] Classify noun/adjective/verb
 - [ ] Classify gender/number
-- [ ] Improve mnemonics search (less words)
 - [ ] Save to a database
 - [ ] Interactive UX
-
